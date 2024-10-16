@@ -12,16 +12,29 @@ from .core_users_dataset import (
 log = logging.getLogger(__name__)
 
 
-@pytest.fixture
-def client(get_mis_client):
-    return get_mis_client
+#@pytest.fixture
+#async def client(get_mis_client):
+#    return get_mis_client
+
+#@pytest.mark.parametrize("params, expected", get_users_dataset)
+#@pytest.mark.anyio
+#async def test_get_users(client, params, expected):
+#    response = await client.get("/users", params=params)
+#    assert default_check(response)
+#    assert check_response(response, expected)
+
+class UserTester:
+    async def user_list(self, async_client, params, expected):
+        response = await async_client.get("/users", params=params)
+        assert default_check(response)
+        assert check_response(response, expected)
 
 
-@pytest.mark.parametrize("params, expected", get_users_dataset)
-def test_get_users(client, params, expected):
-    response = client.get("/users", params=params)
-    assert default_check(response)
-    assert check_response(response, expected)
+class TestUser(UserTester):
+    @pytest.mark.parametrize("params, expected", get_users_dataset)
+    @pytest.mark.asyncio
+    async def test_user_list(self, client, params, expected) -> None:  # nosec
+        await self.user_list(client, params, expected)
 
 
 @pytest.mark.parametrize("request_data,expected", create_user_dataset)

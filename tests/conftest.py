@@ -1,8 +1,13 @@
 import os
 from functools import partial
+from typing import AsyncGenerator, Tuple
 
 import pytest
 from fastapi.testclient import TestClient
+
+from httpx import ASGITransport, AsyncClient
+from asgi_lifespan import LifespanManager
+from contextlib import asynccontextmanager
 
 from main import app
 from libs.tortoise_manager import TortoiseManager
@@ -14,8 +19,21 @@ from tests.config import log
 from tests.tortoise_test_overwrite import init_db, get_db_config
 
 
-@pytest.fixture(scope="session")
-def get_mis_client():
+ClientManagerType = AsyncGenerator[AsyncClient, None]
+
+
+
+
+@asynccontextmanager
+async def client_manager(app, base_url="http://test", **kw) -> ClientManagerType:
+    app.state.testing = True
+    async with LifespanManager(app, startup_timeout=60, shutdown_timeout=60) as manager:
+        transport = ASGITransport(app=manager.app)
+        async with AsyncClient(transport=transport, base_url=base_url, **kw) as c:
+            yield c
+
+@pytest.fixture(scope="module")
+async def client() -> ClientManagerType:
     try:
         from tortoise.backends.psycopg import PsycopgClient
 
@@ -23,22 +41,22 @@ def get_mis_client():
     except ImportError:
         pass
     
-    init_db_with_migration = partial(init_db, migration_paths=TortoiseManager._migrations_to_apply.values())
-    test._init_db = init_db_with_migration
-    test.getDBConfig = get_db_config
-    initializer(
-        modules=TortoiseManager._modules['core'],
-        db_url=TortoiseManager._db_url,
-        app_label='core',
-    )
-    
-    log.info("Create app client")
+    #init_db_with_migration = partial(init_db, migration_paths=TortoiseManager._migrations_to_apply.values())
+    #test._init_db = init_db_with_migration
+    #test.getDBConfig = get_db_config
+    #initializer(
+    #    modules=TortoiseManager._modules['core'],
+    #    db_url=TortoiseManager._db_url,
+    #    app_label='core',
+    #)
+    #log.info("Create app client")
     # maybe rework on full lifespan support for tests?
     # https://github.com/adriangb/misc/tree/starlette-state-lifespan
-    with TestClient(app) as client:
+    async with client_manager(app) as client:
         yield client
     
-    finalizer()
+    #await Tortoise._drop_databases()
+    #finalizer()
 
 
 # async def drop_databases():

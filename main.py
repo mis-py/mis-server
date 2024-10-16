@@ -6,6 +6,7 @@ from fastapi_pagination import add_pagination
 from loguru import logger
 from contextlib import asynccontextmanager
 # from log import setup_logger
+from typing import AsyncGenerator
 
 import traceback
 from fastapi import FastAPI, Response, Request
@@ -35,7 +36,9 @@ from loaders import (
     init_mongo,
     init_guardian,
     manifest_init_modules,
-    init_modules_root_model
+    init_modules_root_model,
+    cleanup_db,
+    generate_schema
 )
 from loaders import (
     shutdown_modules, shutdown_eventory, shutdown_scheduler, shutdown_db, shutdown_redis, shutdown_mongo)
@@ -45,44 +48,84 @@ from core.utils.schema import MisResponse
 
 LogManager.setup()
 
-logger.info(f'Version: {MIS_VERSION}, Environment: {ENVIRONMENT}')
-
 settings = CoreSettings()
 
 origins = settings.ALLOW_ORIGINS.split(',')
 
-
 @asynccontextmanager
-async def lifespan(application: FastAPI):
-    await init_redis()
-    await init_mongo()
-    await init_eventory()
-    await init_scheduler()
-
+async def lifespan_test(application: FastAPI) -> AsyncGenerator[None, None]:
+    #await init_redis()
+    #await init_mongo()
+    #await init_eventory()
+    #await init_scheduler()
+    
     await pre_init_db()
-    await manifest_init_modules()
-    await pre_init_modules(application)
-    await init_db(application)
-    await init_migrations()
-    await init_core()
-    await init_admin_user()
-    await init_modules_root_model()
-    await init_guardian()
-    await init_modules()
+    #await manifest_init_modules()
+    #await pre_init_modules(application)
+    # init db connection to cleanup it before tests then init again with creating tables
+    await init_db(application, create_db=True)
+    #await cleanup_db()
+    #await shutdown_db()
+    #await init_db(application, create_db=True)
+    await generate_schema()
+    #await init_migrations()
+    #await init_core()
+    #await init_admin_user()
+    #await init_modules_root_model()
+    #await init_guardian()
+    #await init_modules()
     await init_core_routes(application)
-    add_pagination(app)  # required after init routes
+    #add_pagination(app)  # required after init routes
 
-    logger.success('MIS Project API started!')
+    logger.success('MIS Project API started in test mode!')
     yield
 
-    await shutdown_modules()
-    await shutdown_scheduler()
-    await shutdown_eventory()
-    await shutdown_mongo()
-    await shutdown_redis()
+    #await shutdown_modules()
+    #await shutdown_scheduler()
+    #await shutdown_eventory()
+    #await shutdown_mongo()
+    #await shutdown_redis()
+    await cleanup_db()
     await shutdown_db()
 
-    logger.success('MIS Project API shutdown complete!')
+    logger.success('MIS Project API in test mode shutdown complete!')
+
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
+    logger.info(f'Version: {MIS_VERSION}, Environment: {ENVIRONMENT}')
+    if getattr(application.state, "testing", None):
+        async with lifespan_test(app) as _:
+            yield
+    else:
+        await init_redis()
+        await init_mongo()
+        await init_eventory()
+        await init_scheduler()
+
+        await pre_init_db()
+        await manifest_init_modules()
+        await pre_init_modules(application)
+        await init_db(application)
+        await init_migrations()
+        await init_core()
+        await init_admin_user()
+        await init_modules_root_model()
+        await init_guardian()
+        await init_modules()
+        await init_core_routes(application)
+        add_pagination(app)  # required after init routes
+
+        logger.success('MIS Project API started!')
+        yield
+
+        await shutdown_modules()
+        await shutdown_scheduler()
+        await shutdown_eventory()
+        await shutdown_mongo()
+        await shutdown_redis()
+        await shutdown_db()
+
+        logger.success('MIS Project API shutdown complete!')
 
 
 app = FastAPI(

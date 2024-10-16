@@ -71,13 +71,13 @@ class TortoiseManager:
             Tortoise.init_models(models, label)
 
     @classmethod
-    async def init(cls, app, add_exception_handlers):
+    async def init(cls, app, add_exception_handlers, create_db=False):
         # await Tortoise.init(config=cls._tortiose_orm, _create_db=settings.POSTGRES_CREATE_DB)
         await Tortoise.init(
             db_url=cls._db_url,
             modules=cls._modules,
             timezone=TIMEZONE,
-            _create_db=settings.POSTGRES_CREATE_DB
+            _create_db=create_db
         )
 
         if add_exception_handlers:
@@ -121,4 +121,8 @@ class TortoiseManager:
     @classmethod
     async def shutdown(cls):
         await connections.close_all()
+    
+    @classmethod
+    async def cleanup(cls):
+        await Tortoise._drop_databases()
 
