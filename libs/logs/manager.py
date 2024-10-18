@@ -119,15 +119,15 @@ class LogManager:
         cls.set_terminal_handler(key=name, level=level, filter=filter, format=format)
         logger.debug(f"[{name}] Terminal logger was set")
 
-        cls.set_file_handler(
-            key=name,
-            level=level,
-            filter=filter,
-            format=format,
-            save_path=LOGS_DIR / name / f"{name}.log",
-            rotation=rotation, serialize=True,
-        )
-        logger.debug(f"[{name}] File logger was set")
+        #cls.set_file_handler(
+        #    key=name,
+        #    level=level,
+        #    filter=filter,
+        #    format=format,
+        #    save_path=LOGS_DIR / name / f"{name}.log",
+        #    rotation=rotation, serialize=True,
+        #)
+        #logger.debug(f"[{name}] File logger was set")
 
 
 def custom_log_timezone(record):

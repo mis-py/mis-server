@@ -1,11 +1,12 @@
 
 import pytest
-
-from main import app
-
+from httpx import ASGITransport, AsyncClient
+from asgi_lifespan import LifespanManager
 from typing import AsyncGenerator
 from httpx import ASGITransport, AsyncClient
 from asgi_lifespan import LifespanManager
+
+from main import app
 
 ClientManagerType = AsyncGenerator[AsyncClient, None]
 
