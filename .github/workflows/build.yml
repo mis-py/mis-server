@@ -1,0 +1,21 @@
+name: Build
+
+on:
+# must be on release!
+# on:
+#   push:
+#     branches: [ "main" ]
+#   pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Build docker image
+    runs-on: ubuntu-latest
+    # needs: test
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag ${{ vars.IMAGE_NAME }}:$(date +%s)
