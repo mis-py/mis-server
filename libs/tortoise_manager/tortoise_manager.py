@@ -71,15 +71,15 @@ class TortoiseManager:
             Tortoise.init_models(models, label)
 
     @classmethod
-    async def init(cls, app, add_exception_handlers):
+    async def init(cls, app, add_exception_handlers, create_db=False):
         # await Tortoise.init(config=cls._tortiose_orm, _create_db=settings.POSTGRES_CREATE_DB)
         await Tortoise.init(
             db_url=cls._db_url,
             modules=cls._modules,
             timezone=TIMEZONE,
-            _create_db=settings.POSTGRES_CREATE_DB
+            _create_db=create_db
         )
-
+        
         if add_exception_handlers:
             async def doesnotexist_exception_handler(request: Request, exc: DoesNotExist):
                 return JSONResponse(status_code=404, content={"detail": str(exc)})
@@ -95,30 +95,39 @@ class TortoiseManager:
             app.add_exception_handler(IntegrityError, integrityerror_exception_handler)
 
     @classmethod
-    async def generate_schema(cls):
-        """
-        This must not be used in normal application workflow. All schemas generating is done by migrations.
-        """
-        logger.warning("Tortoise-ORM generating schema")
-        await Tortoise.generate_schemas()
-
-    @classmethod
     async def init_migrations(cls):
-        # backend = get_backend(cls._tortiose_orm["connections"]["default"])
         backend = get_backend(cls._db_url)
 
         for migration in cls._migrations_to_apply.keys():
             migrations = read_migrations(cls._migrations_to_apply[migration])
-
             try:
-                with backend.lock():
+                with backend.lock():  
                     logger.debug(f"[TortoiseManager] Applying migration for: {migration} [{migrations}]")
                     backend.apply_migrations(backend.to_apply(migrations))
+                    
             except Exception as e:
                 e_name = e.__class__.__name__
                 logger.error(f"[TortoiseManager] Error during migration: {migration} {e_name} {e}")
+                
+        # release connections to db
+        backend._connection.close()
+        del backend._connection
+        del backend
 
     @classmethod
     async def shutdown(cls):
         await connections.close_all()
-
+    
+    @classmethod
+    async def _generate_schema(cls):
+        """
+        This must not be used in normal application workflow. All schemas generating is done by migrations.
+        """
+        await Tortoise.generate_schemas()
+    
+    @classmethod
+    async def _cleanup_db(cls):
+        """
+        This must not be used in normal application workflow. Only for test purposes.
+        """
+        await Tortoise._drop_databases()

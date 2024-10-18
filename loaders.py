@@ -59,8 +59,8 @@ async def pre_init_db():
     logger.success("Tortoise-ORM pre-init finished")
 
 
-async def init_db(app, add_exception_handlers=True):
-    await TortoiseManager.init(app, add_exception_handlers)
+async def init_db(app, add_exception_handlers=True, create_db=False):
+    await TortoiseManager.init(app, add_exception_handlers, create_db)
     logger.success("Tortoise-ORM started")  # , {}, {}", connections._get_storage(), Tortoise.apps)
 
 
@@ -73,6 +73,13 @@ async def init_migrations():
     await TortoiseManager.init_migrations()
     logger.success('Migrations applied!')
 
+async def generate_schema():
+    await TortoiseManager._generate_schema()
+    logger.success('Schema generated!')
+
+async def cleanup_db():
+    await TortoiseManager._cleanup_db()
+    logger.success('Cleanup complete!')
 
 async def init_eventory():
     await Eventory.init()

@@ -35,7 +35,9 @@ from loaders import (
     init_mongo,
     init_guardian,
     manifest_init_modules,
-    init_modules_root_model
+    init_modules_root_model,
+    generate_schema,
+    cleanup_db
 )
 from loaders import (
     shutdown_modules, shutdown_eventory, shutdown_scheduler, shutdown_db, shutdown_redis, shutdown_mongo)
@@ -54,16 +56,25 @@ origins = settings.ALLOW_ORIGINS.split(',')
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    
+    testmode = getattr(app.state, "testing", None)
+    
     await init_redis()
     await init_mongo()
     await init_eventory()
     await init_scheduler()
-
+    
     await pre_init_db()
     await manifest_init_modules()
     await pre_init_modules(application)
-    await init_db(application)
-    await init_migrations()
+    await init_db(application, create_db=testmode)
+    
+    if testmode:
+        logger.info('MIS Project API in "testing mode", migrations skipped. Generate schema instead.')
+        await generate_schema()
+    else:
+        await init_migrations()
+        
     await init_core()
     await init_admin_user()
     await init_modules_root_model()
@@ -81,6 +92,11 @@ async def lifespan(application: FastAPI):
     await shutdown_mongo()
     await shutdown_redis()
     await shutdown_db()
+    
+    if testmode:
+        logger.info('MIS Project API in "testing mode", removing database.')
+        await cleanup_db()
+
 
     logger.success('MIS Project API shutdown complete!')
 
