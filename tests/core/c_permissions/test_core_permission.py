@@ -11,40 +11,43 @@ log = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='module')
-def client(get_mis_client):
-    get_mis_client.post('/modules/init', params={
+async def wrapper(client):
+    await client.post('/modules/init', params={
         "module_name": 'dummy'
     })
-    get_mis_client.post('/modules/start', params={
-        "module_name": 'dummy'
-    })
-
-    yield get_mis_client
-
-    get_mis_client.post('/modules/stop', params={
-        "module_name": 'dummy'
-    })
-    get_mis_client.post('/modules/shutdown', params={
+    await client.post('/modules/start', params={
         "module_name": 'dummy'
     })
 
+    yield
 
+    await client.post('/modules/stop', params={
+        "module_name": 'dummy'
+    })
+    await client.post('/modules/shutdown', params={
+        "module_name": 'dummy'
+    })
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("expected", get_permissions_dataset)
-def test_get_permissions(client, expected):
-    response = client.get("/permissions")
+async def test_get_permissions(wrapper, client, expected):
+    response = await client.get("/permissions")
     assert default_check(response)
     assert check_response(response, expected, ignore_keys=['id'])
 
 
+@pytest.mark.anyio
 @pytest.mark.parametrize("params, expected", get_granted_permissions_dataset)
-def test_get_granted_permissions(client, params, expected):
-    response = client.get("/permissions/granted", params=params)
+async def test_get_granted_permissions(wrapper, client, params, expected):
+    response = await client.get("/permissions/granted", params=params)
     assert default_check(response)
     assert check_response(response, expected, ignore_keys=['id'])
 
 
+@pytest.mark.anyio
 @pytest.mark.parametrize("params, request_data, expected", edit_granted_permissions_dataset)
-def test_edit_granted_permissions(client, params, request_data, expected):
-    response = client.put("/permissions/granted", json=request_data, params=params)
+async def test_edit_granted_permissions(wrapper, client, params, request_data, expected):
+    response = await client.put("/permissions/granted", json=request_data, params=params)
     assert default_check(response)
     assert check_response(response, expected, ignore_keys=['id'])

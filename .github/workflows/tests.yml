@@ -1,0 +1,73 @@
+name: Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    container: python:3.12.6
+
+    services:
+      redis:
+        image: redis:7.0.10-alpine
+      postgres:
+        image: postgres:15.2-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tests
+      rabbitmq:
+        image: rabbitmq:3.11.13-alpine
+      mongodb:
+        image: mongo
+        env:
+          MONGO_INITDB_ROOT_USERNAME: mongodb
+          MONGO_INITDB_ROOT_PASSWORD: mongodb
+          MONGO_INITDB_DATABASE: mis
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    # - name: Set up Python 3.12.6
+    #   uses: actions/setup-python@v5
+    #   with:
+    #     python-version: "3.12.6"
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip setuptools wheel httpx pytest pytest-md pytest-emoji pytest-dotenv pytest-asyncio
+        pip install -r requirements.txt
+    
+    #- name: Migrate DB
+    #  run: uv run bash scripts/prestart.sh
+    #  working-directory: backend
+
+    - uses: pavelzw/pytest-action@v2
+      with:
+        emoji: false
+        verbose: true
+        job-summary: true
+      env: 
+        ENVIRONMENT: TEST
+        POSTGRES_HOST: postgres
+        POSTGRES_DB: tests_{}
+        REDIS_URI: redis://redis
+        RABBITMQ_URI: amqp://guest:guest@rabbitmq:5672/
+        MONGO_HOST: mongodb
+        MONGO_INITDB_ROOT_USERNAME: mongodb
+        MONGO_INITDB_ROOT_PASSWORD: mongodb
+        MONGO_INITDB_DATABASE: mis
+
+  # security:
+  #   name: Check for vulnerabilities
+  #   runs-on: ubuntu-latest
+  #   needs: tests
+  #   
+  #   steps:
+  #     - name: Scan
+  #       run: ls 
+  #       # https://github.com/docker/scout-action

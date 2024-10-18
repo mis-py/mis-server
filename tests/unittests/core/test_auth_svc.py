@@ -1,14 +1,26 @@
-from tortoise.contrib.test import TestCase
-
+import unittest
+import asyncio
 from core.db.models import User, Team
 from core.dependencies.services import get_auth_service, get_team_service, get_user_service
 from core.schemas.user import UserCreate
 from core.utils.security import verify_password
 from unittest.mock import Mock
 
-class TestAuthService(TestCase):
-    async def asyncSetUp(self):
-        await super().asyncSetUp()
+
+class Context():
+
+    auth_service = None
+    user_service = None
+    user = None
+    team = None
+    
+    def __init__(self) -> None:
+        self.init_done: bool = False
+
+    async def set_up(self):
+        if self.init_done:
+            return
+
         self.auth_service = get_auth_service()
 
         self.team = await Team.create(name="Team")
@@ -19,11 +31,20 @@ class TestAuthService(TestCase):
             password="superpass"
         ))
 
+        self.init_done = True
+
+
+class TestAuthService(unittest.IsolatedAsyncioTestCase):    
+    context: Context = Context()
+    
+    async def asyncSetUp(self):
+        await self.context.set_up()
+    
     async def test_authenticate(self):
-        auth_data = Mock(username=self.user.username, password="superpass")
-        token_data = await self.auth_service.authenticate(auth_data)
+        auth_data = Mock(username=self.context.user.username, password="superpass")
+        token_data = await self.context.auth_service.authenticate(auth_data)
         assert token_data.token_type == "bearer"
-        assert token_data.username == self.user.username
+        assert token_data.username == self.context.user.username
 
     async def test_change_password(self):
         await self.auth_service.change_password(
